@@ -32,10 +32,9 @@ jobs:
         run: cd sport && mvn -B -ntp -DskipTests clean compile
 
   api-tests:
-    name: API Tests (Manual)
+    name: API Tests
     needs: compile
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_api_tests == true }}
     env:
       BASE_URL: ${{ secrets.BASE_URL }}
       TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
