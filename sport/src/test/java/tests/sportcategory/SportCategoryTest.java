@@ -3,11 +3,15 @@ package tests.sportcategory;
 import base.BaseTest;
 import body.sportcategory.SportCategoryBody;
 import io.restassured.RestAssured;
+import io.restassured.module.jsv.JsonSchemaValidator;
 import io.restassured.response.Response;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+import utils.ConfigReader;
 import utils.TokenHelper;
 import utils.Utils;
+
+import static org.hamcrest.Matchers.*;
 
 public class SportCategoryTest extends BaseTest {
     //Tambahkan Sportcategorytest
@@ -27,10 +31,13 @@ public class SportCategoryTest extends BaseTest {
         Response response = RestAssured.given()
                 .header("Authorization","Bearer " + token)
                 .header("Content-Type", "application/json")
-                .body(sportCategoryBody.createSportCategoryData("1231434").toString())
+                .body(sportCategoryBody.createSportCategoryData(randomName).toString())
                 .when()
                 .post("v1/sport-categories/create")
                 .then()
+                .log().ifValidationFails()
+                .statusCode(200)
+                .body("error", equalTo(false))
                 .extract().response();
 
         System.out.println("Create Response: " + response.asString());
@@ -39,6 +46,7 @@ public class SportCategoryTest extends BaseTest {
         //Get Category from response
         categoryId = response.jsonPath().getString("result.id");
         Assert.assertNotNull(categoryId,"Category ID should not be null");
+        ConfigReader.setProperty("categoryId", categoryId);
         System.out.println("Created Category ID: " + categoryId);
     }
     //Read
@@ -55,25 +63,69 @@ public class SportCategoryTest extends BaseTest {
                 .when()
                 .get("v1/sport-categories")
                 .then()
+                .log().ifValidationFails()
+                .statusCode(200)
+                .body("error", equalTo(false))
+                .body("result", notNullValue())
+                .body(JsonSchemaValidator.matchesJsonSchemaInClasspath("schema/sport-category-schema.json"))
                 .extract().response();
 
         System.out.println("Get Response: " + response.asString());
     }
+
+
     //Update
+    @Test(dependsOnMethods = "createSportCategories")
+    public void updateSportCategory(){
+        SportCategoryBody sportCategoryBody = new SportCategoryBody();
+        String token = TokenHelper.getToken();
+        String databaru = Utils.getCategoryName();
+        String savedCategoryId = ConfigReader.getProperty("categoryId");
+
+        Assert.assertNotNull(savedCategoryId, "Category ID should be saved in config.properties");
+
+        Response response = RestAssured.given()
+                .header("Authorization","Bearer " + token)
+                .header("Content-Type", "application/json")
+                .body(sportCategoryBody.createSportCategoryData(databaru).toString())
+                .when()
+                .post("v1/sport-categories/update/" + savedCategoryId)
+                .then()
+                .log().ifValidationFails()
+                .statusCode(200)
+                .body("error", equalTo(false))
+                .extract().response();
+
+        System.out.println("Update Response: " + response.asString());
+
+        //Assert
+        //Get Category from response
+        categoryId = response.jsonPath().getString("result.id");
+        Assert.assertNotNull(categoryId,"Category ID should not be null");
+        ConfigReader.setProperty("categoryId", categoryId);
+        System.out.println("Updated Category ID: " + categoryId);
+    }
+
+
     //Delete
-    @Test
+    @Test(dependsOnMethods = "updateSportCategory")
     public void deleteSportCategory(){
         String token = TokenHelper.getToken();
+        String savedCategoryId = ConfigReader.getProperty("categoryId");
+
+        Assert.assertNotNull(savedCategoryId, "Category ID should be saved in config.properties");
 
         Response response = RestAssured.given()
                 .header("Authorization","Bearer " + token)
                 .header("Content-Type", "application/json")
                 .when()
-                .delete("v1/sport-categories/delete" + categoryId)
+                .delete("v1/sport-categories/delete/" + savedCategoryId)
                 .then()
+                .log().ifValidationFails()
+                .statusCode(200)
+                .body("error", equalTo(false))
                 .extract().response();
 
         System.out.println("Get Response: " + response.asString());
     }
-    //E2E
 }
